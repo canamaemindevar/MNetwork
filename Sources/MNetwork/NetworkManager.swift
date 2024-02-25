@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import MCore
 
 public protocol IdAndTitleQueryMakeable: AnyObject {
     func makeQueryWithID(id: String, completion: @escaping (Result<TitleQueryResponse, ErrosTypes>) -> Void)

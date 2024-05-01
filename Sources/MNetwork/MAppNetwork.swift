@@ -8,38 +8,37 @@
 import Foundation
 
 protocol CoreNetworkManagerInterface {
-    func request<T: Codable>(_ endpoint: Endpoint,completion: @escaping((Result<T,ErrosTypes>)->()))
+    func request<T: Codable>(_ endpoint: Endpoint,completion: @escaping((Result<T,ErrorTypes>)->()))
 }
 
 public final class CoreNetworkManager: CoreNetworkManagerInterface {
 
-    static let shared = CoreNetworkManager()
-    private init() {}
+    public init() {}
 
-    func request<T: Codable>(_ endpoint: Endpoint, completion: @escaping (Result<T, ErrosTypes>) -> Void) {
+    public func request<T: Codable>(_ endpoint: Endpoint, completion: @escaping (Result<T, ErrorTypes>) -> Void) {
 
         let task = URLSession.shared.dataTask(with: endpoint.request()) { data, response, error in
 
             if error != nil {
              //   Logger.shared.log(text: ErrosTypes.generalError.rawValue)
-                print(ErrosTypes.generalError.rawValue)
+                print(ErrorTypes.generalError.rawValue)
                 completion(.failure(.generalError))
                 return
             }
 
-            guard let response = response as? HTTPURLResponse , response.statusCode >= 200 , response.statusCode <= 299 else {
-
-                completion(.failure(.responseError))
-                return
-            }
-
-            guard let data = data else {
-                completion(.failure(.noData))
-                return
-            }
-
-            self.handleResponse(data: data) { response in
-                completion(response)
+            guard let response = response as? HTTPURLResponse else { return }
+            switch response.statusCode
+            {
+                case  200 ... 299 :
+                self.handleResponse(data: data) { response in
+                    completion(response)
+                }
+                case 300 ... 399:
+                    completion(.failure(.redirectionError300))
+                case 400 ... 499:
+                    completion(.failure(.clientError400))
+                default:
+                    completion(.failure(.generalError))
             }
         }
         task.resume()
@@ -47,18 +46,21 @@ public final class CoreNetworkManager: CoreNetworkManagerInterface {
 
     //MARK:  Handle func
 
-    fileprivate func handleResponse<T: Codable>(data: Data, compeltion: @escaping( (Result<T,ErrosTypes>)-> () ) ) {
+    fileprivate func handleResponse<T: Codable>(data: Data?, completion: @escaping( (Result<T,ErrorTypes>)-> () ) ) {
+
+        guard let data = data else {
+            completion(.failure(.noData))
+            return
+        }
 
         do {
             let succesData =  try JSONDecoder().decode(T.self, from: data)
-            compeltion(.success(succesData))
+            completion(.success(succesData))
         } catch  {
            // Logger.shared.log(text: String(describing: error))
             print(error)
-            compeltion(.failure(.parsingError))
+            completion(.failure(.parsingError))
         }
 
     }
 }
-
-
